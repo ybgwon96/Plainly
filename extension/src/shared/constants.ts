@@ -26,6 +26,6 @@ export const SKIP_TAGS = new Set([
 
 export const MIN_TEXT_LENGTH = 2;
 export const MAX_TEXT_LENGTH = 5000;
-export const MAX_TEXTS_PER_REQUEST = 8;
-export const MAX_CONCURRENT_REQUESTS = 6;
-export const DEBOUNCE_DELAY = 300;
+export const MAX_TEXTS_PER_REQUEST = 4;
+export const MAX_CONCURRENT_REQUESTS = 10;
+export const DEBOUNCE_DELAY = 100;

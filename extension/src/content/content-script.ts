@@ -230,11 +230,19 @@ class PlainlyContentScript {
 
     let debounceTimer: number | null = null;
     const pendingNodes: (Element | ShadowRoot)[] = [];
+    const pendingTextNodes: Text[] = [];
 
     const handleMutations = (mutations: MutationRecord[]) => {
       if (!this.isEnabled) return;
 
       mutations.forEach((mutation) => {
+        if (mutation.type === 'characterData' && mutation.target.nodeType === Node.TEXT_NODE) {
+          const textNode = mutation.target as Text;
+          if (!this.translatingNodes.has(textNode)) {
+            pendingTextNodes.push(textNode);
+          }
+        }
+
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             const element = node as Element;
@@ -255,18 +263,34 @@ class PlainlyContentScript {
         });
       });
 
-      if (pendingNodes.length > 0 && !debounceTimer) {
+      if ((pendingNodes.length > 0 || pendingTextNodes.length > 0) && !debounceTimer) {
         debounceTimer = window.setTimeout(() => {
           const nodesToProcess = [...pendingNodes];
+          const textNodesToProcess = [...pendingTextNodes];
           pendingNodes.length = 0;
+          pendingTextNodes.length = 0;
           debounceTimer = null;
+
+          const allTextNodes: import('./text-extractor').TextNodeInfo[] = [];
 
           nodesToProcess.forEach((node) => {
             const textNodes = textExtractor.extractTextNodes(node);
-            if (textNodes.length > 0) {
-              this.translateNodesParallel(textNodes);
+            allTextNodes.push(...textNodes);
+          });
+
+          textNodesToProcess.forEach((textNode) => {
+            const parent = textNode.parentElement;
+            if (parent) {
+              const text = textNode.textContent?.trim() || '';
+              if (text.length >= 2) {
+                allTextNodes.push({ node: textNode, originalText: text, parentElement: parent });
+              }
             }
           });
+
+          if (allTextNodes.length > 0) {
+            this.translateNodesParallel(allTextNodes);
+          }
         }, 100);
       }
     };
@@ -275,7 +299,8 @@ class PlainlyContentScript {
 
     this.observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      characterData: true
     });
 
     this.observeExistingShadowRoots(handleMutations);

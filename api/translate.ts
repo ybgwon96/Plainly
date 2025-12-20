@@ -70,7 +70,7 @@ Example output: {"translations": ["안녕하세요", "세계"]}`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: JSON.stringify(texts) }
       ] as DeepSeekMessage[],
-      temperature: 0.3,
+      temperature: 0.1,
       max_tokens: 4096,
       response_format: { type: 'json_object' }
     })
