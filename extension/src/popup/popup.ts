@@ -1,20 +1,23 @@
 import { storage } from '@shared/storage';
-import { LANGUAGE_NAMES, DEBOUNCE_DELAY } from '@shared/constants';
-import type { TranslationSettings } from '@shared/types';
+import { DEBOUNCE_DELAY } from '@shared/constants';
+import type { TranslationSettings, LanguageCode } from '@shared/types';
 
 class PopupController {
   private elements!: {
     toggleBtn: HTMLButtonElement;
     sourceText: HTMLTextAreaElement;
     translatedText: HTMLDivElement;
-    sourceLang: HTMLButtonElement;
-    targetLang: HTMLButtonElement;
+    sourceLang: HTMLSelectElement;
+    targetLang: HTMLSelectElement;
     swapLang: HTMLButtonElement;
     clearInput: HTMLButtonElement;
     copyResult: HTMLButtonElement;
+    domainAutoTranslate: HTMLInputElement;
+    currentDomain: HTMLSpanElement;
   };
   private debounceTimer: number | null = null;
   private settings!: TranslationSettings;
+  private currentDomain: string = '';
 
   constructor() {
     this.init();
@@ -23,8 +26,21 @@ class PopupController {
   private async init(): Promise<void> {
     this.elements = this.getElements();
     await this.loadSettings();
+    await this.loadDomainSettings();
     this.setupEventListeners();
     this.updateUI();
+  }
+
+  private async loadDomainSettings(): Promise<void> {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.url) {
+        const url = new URL(tab.url);
+        this.currentDomain = url.hostname;
+      }
+    } catch {
+      this.currentDomain = '';
+    }
   }
 
   private getElements() {
@@ -32,11 +48,13 @@ class PopupController {
       toggleBtn: document.getElementById('toggle-translate') as HTMLButtonElement,
       sourceText: document.getElementById('source-text') as HTMLTextAreaElement,
       translatedText: document.getElementById('translated-text') as HTMLDivElement,
-      sourceLang: document.getElementById('source-lang') as HTMLButtonElement,
-      targetLang: document.getElementById('target-lang') as HTMLButtonElement,
+      sourceLang: document.getElementById('source-lang') as HTMLSelectElement,
+      targetLang: document.getElementById('target-lang') as HTMLSelectElement,
       swapLang: document.getElementById('swap-lang') as HTMLButtonElement,
       clearInput: document.getElementById('clear-input') as HTMLButtonElement,
-      copyResult: document.getElementById('copy-result') as HTMLButtonElement
+      copyResult: document.getElementById('copy-result') as HTMLButtonElement,
+      domainAutoTranslate: document.getElementById('domain-auto-translate') as HTMLInputElement,
+      currentDomain: document.getElementById('current-domain') as HTMLSpanElement
     };
   }
 
@@ -50,6 +68,35 @@ class PopupController {
     this.elements.swapLang.addEventListener('click', () => this.swapLanguages());
     this.elements.clearInput.addEventListener('click', () => this.clearInput());
     this.elements.copyResult.addEventListener('click', () => this.copyResult());
+    this.elements.sourceLang.addEventListener('change', () => this.handleLanguageChange());
+    this.elements.targetLang.addEventListener('change', () => this.handleLanguageChange());
+    this.elements.domainAutoTranslate.addEventListener('change', () => this.toggleDomainAutoTranslate());
+  }
+
+  private async toggleDomainAutoTranslate(): Promise<void> {
+    if (!this.currentDomain) return;
+
+    const newValue = this.elements.domainAutoTranslate.checked;
+    await storage.setDomainAutoTranslate(this.currentDomain, newValue);
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_TRANSLATION' });
+    }
+  }
+
+  private async handleLanguageChange(): Promise<void> {
+    this.settings.sourceLang = this.elements.sourceLang.value as LanguageCode;
+    this.settings.targetLang = this.elements.targetLang.value as LanguageCode;
+
+    await storage.updateSettings({
+      sourceLang: this.settings.sourceLang,
+      targetLang: this.settings.targetLang
+    });
+
+    if (this.elements.sourceText.value.trim()) {
+      this.translateInput();
+    }
   }
 
   private async togglePageTranslation(): Promise<void> {
@@ -58,15 +105,18 @@ class PopupController {
       if (!tab.id) return;
 
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_TRANSLATION' });
-      const isActive = response?.enabled ?? !this.settings.autoTranslate;
+      const isActive = response?.enabled ?? false;
 
       this.elements.toggleBtn.classList.toggle('active', isActive);
-      this.settings.autoTranslate = isActive;
-      await storage.updateSettings({ autoTranslate: isActive });
-    } catch (error) {
-      this.settings.autoTranslate = !this.settings.autoTranslate;
-      this.elements.toggleBtn.classList.toggle('active', this.settings.autoTranslate);
-      await storage.updateSettings({ autoTranslate: this.settings.autoTranslate });
+      this.elements.domainAutoTranslate.checked = isActive;
+    } catch {
+      const currentChecked = this.elements.domainAutoTranslate.checked;
+      const newValue = !currentChecked;
+      this.elements.toggleBtn.classList.toggle('active', newValue);
+      this.elements.domainAutoTranslate.checked = newValue;
+      if (this.currentDomain) {
+        await storage.setDomainAutoTranslate(this.currentDomain, newValue);
+      }
     }
   }
 
@@ -126,7 +176,7 @@ class PopupController {
       targetLang: this.settings.targetLang
     });
 
-    this.updateLanguageButtons();
+    this.updateLanguageSelects();
 
     setTimeout(() => {
       this.elements.swapLang.classList.remove('spinning');
@@ -162,21 +212,26 @@ class PopupController {
     }
   }
 
-  private updateUI(): void {
-    this.updateLanguageButtons();
-    this.elements.toggleBtn.classList.toggle('active', this.settings.autoTranslate);
+  private async updateUI(): Promise<void> {
+    this.updateLanguageSelects();
+    await this.updateDomainUI();
   }
 
-  private updateLanguageButtons(): void {
-    const source = LANGUAGE_NAMES[this.settings.sourceLang];
-    const target = LANGUAGE_NAMES[this.settings.targetLang];
+  private updateLanguageSelects(): void {
+    this.elements.sourceLang.value = this.settings.sourceLang;
+    this.elements.targetLang.value = this.settings.targetLang;
+  }
 
-    this.elements.sourceLang.innerHTML =
-      `<span class="lang-code">${source.code}</span>
-       <span class="lang-name">${source.name}</span>`;
-    this.elements.targetLang.innerHTML =
-      `<span class="lang-code">${target.code}</span>
-       <span class="lang-name">${target.name}</span>`;
+  private async updateDomainUI(): Promise<void> {
+    if (this.currentDomain) {
+      this.elements.currentDomain.textContent = this.currentDomain;
+      const autoTranslate = await storage.getDomainAutoTranslate(this.currentDomain);
+      this.elements.domainAutoTranslate.checked = autoTranslate;
+      this.elements.toggleBtn.classList.toggle('active', autoTranslate);
+    } else {
+      this.elements.currentDomain.textContent = '알 수 없음';
+      this.elements.domainAutoTranslate.disabled = true;
+    }
   }
 }
 

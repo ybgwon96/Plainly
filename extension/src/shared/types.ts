@@ -1,4 +1,4 @@
-export type LanguageCode = 'en' | 'ko';
+export type LanguageCode = 'en' | 'ko' | 'ja' | 'zh' | 'es' | 'fr' | 'de';
 
 export interface TranslationSettings {
   sourceLang: LanguageCode;
@@ -35,7 +35,9 @@ export type MessageType =
   | 'TRANSLATE_TEXT'
   | 'TOGGLE_TRANSLATION'
   | 'GET_STATUS'
-  | 'UPDATE_SETTINGS';
+  | 'UPDATE_SETTINGS'
+  | 'TRANSLATE_SELECTION'
+  | 'TRANSLATE_SELECTION_SHORTCUT';
 
 export interface Message<T = unknown> {
   type: MessageType;

@@ -97,4 +97,32 @@ chrome.runtime.onInstalled.addListener((details) => {
       autoTranslate: false
     });
   }
+
+  chrome.contextMenus.create({
+    id: 'translate-selection',
+    title: '"%s" 번역하기',
+    contexts: ['selection']
+  });
+});
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'translate-selection' && info.selectionText && tab?.id) {
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'TRANSLATE_SELECTION',
+      payload: { text: info.selectionText }
+    });
+  }
+});
+
+chrome.commands.onCommand.addListener(async (command) => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+
+  if (command === 'toggle-translation') {
+    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_TRANSLATION' });
+  }
+
+  if (command === 'translate-selection') {
+    chrome.tabs.sendMessage(tab.id, { type: 'TRANSLATE_SELECTION_SHORTCUT' });
+  }
 });

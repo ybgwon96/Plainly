@@ -24,20 +24,34 @@
     </header>
 
     <section class="language-section">
-      <button id="source-lang" class="lang-btn">
-        <span class="lang-code">EN</span>
-        <span class="lang-name">English</span>
-      </button>
+      <div class="lang-select-wrapper">
+        <select id="source-lang" class="lang-select">
+          <option value="en">EN English</option>
+          <option value="ko">KO 한국어</option>
+          <option value="ja">JA 日本語</option>
+          <option value="zh">ZH 中文</option>
+          <option value="es">ES Español</option>
+          <option value="fr">FR Français</option>
+          <option value="de">DE Deutsch</option>
+        </select>
+      </div>
       <button id="swap-lang" class="swap-btn" aria-label="언어 교환">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M7 16L3 12M3 12L7 8M3 12H21M17 8L21 12M21 12L17 16"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </button>
-      <button id="target-lang" class="lang-btn">
-        <span class="lang-code">KO</span>
-        <span class="lang-name">한국어</span>
-      </button>
+      <div class="lang-select-wrapper">
+        <select id="target-lang" class="lang-select">
+          <option value="en">EN English</option>
+          <option value="ko">KO 한국어</option>
+          <option value="ja">JA 日本語</option>
+          <option value="zh">ZH 中文</option>
+          <option value="es">ES Español</option>
+          <option value="fr">FR Français</option>
+          <option value="de">DE Deutsch</option>
+        </select>
+      </div>
     </section>
 
     <section class="translation-section">
@@ -68,8 +82,19 @@
       </div>
     </section>
 
+    <section class="domain-section">
+      <label class="domain-toggle">
+        <input type="checkbox" id="domain-auto-translate">
+        <span class="domain-label">
+          <span class="domain-text">이 사이트 자동 번역</span>
+          <span class="domain-name" id="current-domain"></span>
+        </span>
+      </label>
+    </section>
+
     <footer class="footer">
       <span class="powered-by">Powered by DeepSeek</span>
+      <span class="shortcuts">⌘⇧T 토글 · ⌘⇧Y 선택번역</span>
     </footer>
   </div>
 

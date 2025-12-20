@@ -1,9 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+type LanguageCode = 'en' | 'ko' | 'ja' | 'zh' | 'es' | 'fr' | 'de';
+
 interface TranslationRequest {
   texts: string[];
-  sourceLang: 'en' | 'ko';
-  targetLang: 'en' | 'ko';
+  sourceLang: LanguageCode;
+  targetLang: LanguageCode;
 }
 
 interface TranslatedText {
@@ -25,9 +27,14 @@ interface DeepSeekResponse {
 }
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const LANG_NAMES: Record<string, string> = {
+const LANG_NAMES: Record<LanguageCode, string> = {
   en: 'English',
-  ko: 'Korean'
+  ko: 'Korean',
+  ja: 'Japanese',
+  zh: 'Chinese',
+  es: 'Spanish',
+  fr: 'French',
+  de: 'German'
 };
 
 async function translateWithDeepSeek(

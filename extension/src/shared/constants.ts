@@ -8,9 +8,14 @@ export const DEFAULT_SETTINGS: TranslationSettings = {
   autoTranslate: false
 };
 
-export const LANGUAGE_NAMES: Record<LanguageCode, { code: string; name: string }> = {
-  en: { code: 'EN', name: 'English' },
-  ko: { code: 'KO', name: '한국어' }
+export const LANGUAGE_NAMES: Record<LanguageCode, { code: string; name: string; native: string }> = {
+  en: { code: 'EN', name: 'English', native: 'English' },
+  ko: { code: 'KO', name: 'Korean', native: '한국어' },
+  ja: { code: 'JA', name: 'Japanese', native: '日本語' },
+  zh: { code: 'ZH', name: 'Chinese', native: '中文' },
+  es: { code: 'ES', name: 'Spanish', native: 'Español' },
+  fr: { code: 'FR', name: 'French', native: 'Français' },
+  de: { code: 'DE', name: 'German', native: 'Deutsch' }
 };
 
 export const SKIP_TAGS = new Set([

@@ -108,16 +108,24 @@ export class TextExtractor {
     return letterCount / text.length < 0.3;
   }
 
-  detectLanguage(text: string): 'ko' | 'en' | 'mixed' {
+  detectLanguage(text: string): LanguageCode | 'mixed' {
     const koreanChars = (text.match(/[가-힣]/g) || []).length;
-    const englishChars = (text.match(/[a-zA-Z]/g) || []).length;
-    const total = koreanChars + englishChars;
+    const japaneseChars = (text.match(/[\u3040-\u309F\u30A0-\u30FF]/g) || []).length;
+    const chineseChars = (text.match(/[\u4E00-\u9FFF]/g) || []).length;
+    const latinChars = (text.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
 
+    const total = koreanChars + japaneseChars + chineseChars + latinChars;
     if (total === 0) return 'mixed';
 
     const koreanRatio = koreanChars / total;
-    if (koreanRatio > 0.7) return 'ko';
-    if (koreanRatio < 0.3) return 'en';
+    const japaneseRatio = japaneseChars / total;
+    const chineseRatio = chineseChars / total;
+
+    if (koreanRatio > 0.6) return 'ko';
+    if (japaneseRatio > 0.3) return 'ja';
+    if (chineseRatio > 0.5 && japaneseRatio < 0.1) return 'zh';
+    if (koreanRatio < 0.1 && japaneseRatio < 0.1 && chineseRatio < 0.1) return 'en';
+
     return 'mixed';
   }
 

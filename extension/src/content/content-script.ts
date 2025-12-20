@@ -14,6 +14,8 @@ class PlainlyContentScript {
     targetLang: 'ko'
   };
   private translatingNodes = new Set<Text>();
+  private tooltip: HTMLDivElement | null = null;
+  private currentDomain: string = '';
 
   constructor() {
     this.init();
@@ -23,19 +25,24 @@ class PlainlyContentScript {
     const settings = await storage.getSettings();
     this.settings.sourceLang = settings.sourceLang;
     this.settings.targetLang = settings.targetLang;
+    this.currentDomain = window.location.hostname;
 
-    if (settings.autoTranslate) {
+    const domainAutoTranslate = await storage.getDomainAutoTranslate(this.currentDomain);
+
+    if (domainAutoTranslate) {
       await this.enable();
     }
 
     this.listenForMessages();
     this.listenForStorageChanges();
+    this.createTooltip();
   }
 
   private listenForMessages(): void {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === 'TOGGLE_TRANSLATION') {
-        this.toggle().then(() => {
+        this.toggle().then(async () => {
+          await storage.setDomainAutoTranslate(this.currentDomain, this.isEnabled);
           sendResponse({ enabled: this.isEnabled });
         });
         return true;
@@ -48,6 +55,22 @@ class PlainlyContentScript {
           autoTranslate: this.isEnabled
         });
         return true;
+      }
+
+      if (message.type === 'TRANSLATE_SELECTION') {
+        const text = message.payload?.text;
+        if (text) {
+          this.translateSelection(text);
+        }
+        return false;
+      }
+
+      if (message.type === 'TRANSLATE_SELECTION_SHORTCUT') {
+        const selection = window.getSelection()?.toString().trim();
+        if (selection) {
+          this.translateSelection(selection);
+        }
+        return false;
       }
 
       return false;
@@ -278,6 +301,93 @@ class PlainlyContentScript {
         this.observeShadowRoot(el.shadowRoot, callback);
       }
     });
+  }
+
+  private createTooltip(): void {
+    this.tooltip = document.createElement('div');
+    this.tooltip.id = 'plainly-tooltip';
+    this.tooltip.style.cssText = `
+      position: fixed;
+      z-index: 2147483647;
+      max-width: 400px;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      color: #f5f5f5;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      display: none;
+      word-wrap: break-word;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    `;
+    document.body.appendChild(this.tooltip);
+
+    document.addEventListener('click', (e) => {
+      if (this.tooltip && !this.tooltip.contains(e.target as Node)) {
+        this.hideTooltip();
+      }
+    });
+  }
+
+  private showTooltip(text: string): void {
+    if (!this.tooltip) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      this.tooltip.style.top = '20px';
+      this.tooltip.style.right = '20px';
+      this.tooltip.style.left = 'auto';
+    } else {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      let top = rect.bottom + 10;
+      let left = rect.left;
+
+      if (top + 100 > window.innerHeight) {
+        top = rect.top - 10 - 50;
+      }
+      if (left + 400 > window.innerWidth) {
+        left = window.innerWidth - 420;
+      }
+
+      this.tooltip.style.top = `${top}px`;
+      this.tooltip.style.left = `${Math.max(10, left)}px`;
+      this.tooltip.style.right = 'auto';
+    }
+
+    this.tooltip.textContent = text;
+    this.tooltip.style.display = 'block';
+  }
+
+  private hideTooltip(): void {
+    if (this.tooltip) {
+      this.tooltip.style.display = 'none';
+    }
+  }
+
+  private async translateSelection(text: string): Promise<void> {
+    this.showTooltip('번역 중...');
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'TRANSLATE_TEXT',
+        payload: {
+          texts: [text],
+          sourceLang: this.settings.sourceLang,
+          targetLang: this.settings.targetLang
+        }
+      });
+
+      if (response?.success && response.data?.[0]) {
+        this.showTooltip(response.data[0].translated);
+      } else {
+        this.showTooltip('번역 실패');
+      }
+    } catch {
+      this.showTooltip('번역 중 오류 발생');
+    }
   }
 }
 
