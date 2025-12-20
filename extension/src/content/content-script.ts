@@ -41,8 +41,11 @@ class PlainlyContentScript {
   private listenForMessages(): void {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.type === 'TOGGLE_TRANSLATION') {
+        const persist = message.payload?.persist !== false;
         this.toggle().then(async () => {
-          await storage.setDomainAutoTranslate(this.currentDomain, this.isEnabled);
+          if (persist) {
+            await storage.setDomainAutoTranslate(this.currentDomain, this.isEnabled);
+          }
           sendResponse({ enabled: this.isEnabled });
         });
         return true;

@@ -119,7 +119,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   if (!tab?.id) return;
 
   if (command === 'toggle-translation') {
-    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_TRANSLATION' });
+    chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_TRANSLATION', payload: { persist: false } });
   }
 
   if (command === 'translate-selection') {
